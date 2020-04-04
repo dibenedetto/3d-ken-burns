@@ -50,12 +50,14 @@ exec(open('./models/pointcloud-inpainting.py', 'r').read())
 
 ##########################################################
 
-arguments_strIn = './images/doublestrike.jpg'
-arguments_strOut = './depthestim.npy'
+arguments_strIn      = './images/doublestrike.jpg'
+arguments_strOut     = './depthestim.npy'
+arguments_boolRefine = False
 
 for strOption, strArgument in getopt.getopt(sys.argv[1:], '', [ strParameter[2:] + '=' for strParameter in sys.argv[1::2] ])[0]:
-	if strOption == '--in' and strArgument != '': arguments_strIn = strArgument # path to the input image
-	if strOption == '--out' and strArgument != '': arguments_strOut = strArgument # path to where the output should be stored
+	if strOption == '--in'  and strArgument != '': arguments_strIn      = strArgument # path to the input image
+	if strOption == '--out' and strArgument != '': arguments_strOut     = strArgument # path to where the output should be stored
+	if strOption == '--ref' and strArgument != '': arguments_boolRefine = (strArgument != '0')
 # end
 
 ##########################################################
@@ -68,6 +70,8 @@ if __name__ == '__main__':
 
 	tenImage = torch.FloatTensor(npyImage.transpose(2, 0, 1)).unsqueeze(0).cuda() / 255.0
 	tenDisparity = disparity_estimation(tenImage)
+	if arguments_boolRefine:
+		tenDisparity = disparity_adjustment(tenImage, tenDisparity)
 	tenDisparity = disparity_refinement(torch.nn.functional.interpolate(input=tenImage, size=(tenDisparity.shape[2] * 4, tenDisparity.shape[3] * 4), mode='bilinear', align_corners=False), tenDisparity)
 	tenDisparity = torch.nn.functional.interpolate(input=tenDisparity, size=(tenImage.shape[2], tenImage.shape[3]), mode='bilinear', align_corners=False) * (max(tenImage.shape[2], tenImage.shape[3]) / 256.0)
 	tenDepth = (fltFocal * fltBaseline) / (tenDisparity + 0.0000001)
